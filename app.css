@@ -8,3 +8,4 @@
 .skill-card p{margin:0;color:var(--muted,#5e6877);font-size:.88rem;line-height:1.45}
 .skill-card.review{border-color:#e3bd87;background:#fffaf1}
 @media(max-width:720px){.skill-grid{grid-template-columns:1fr 1fr}.skill-card{padding:.85rem}.skill-card strong{font-size:1.65rem}}
+.question-step[hidden]{display:none}.question-nav{display:flex;justify-content:space-between;align-items:center;gap:.8rem;margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--line)}.question-count{font-size:.78rem;color:var(--muted);font-weight:800}.question-nav-actions{display:flex;align-items:center;gap:.5rem}.question-nav button:disabled{opacity:.38;cursor:not-allowed}@media(max-width:600px){.question-nav{align-items:stretch;flex-direction:column}.question-nav-actions{justify-content:space-between}.question-nav-actions button{min-height:2.5rem}}

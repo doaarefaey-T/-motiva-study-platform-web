@@ -153,6 +153,21 @@ function imageSlot(key, alt) { return `<img data-asset="${esc(key)}" alt="${esc(
 function stageButton(stage, label, current) { return `<button class="lesson-step ${stage === current ? 'active' : ''}" data-stage="${stage}">${esc(label)}</button>`; }
 function normalText(value) { return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/gi, ' ').trim(); }
 function sentenceFrom(tokens) { return tokens.join(' ').replace(/\s+([,.;:?!])/g, '$1').replace(/([«])\s+/g, '$1').replace(/\s+([»])/g, '$1').trim(); }
+function setupQuestionFlow() {
+  const cards = [...app.querySelectorAll('.exercise-card')];
+  if (!cards.length) return;
+  cards.forEach((card, index) => {
+    card.classList.add('question-step'); card.hidden = index !== 0;
+    const nav = document.createElement('div'); nav.className = 'question-nav';
+    nav.innerHTML = `<span class="question-count">Question ${index + 1} of ${cards.length}</span><span class="question-nav-actions"><button type="button" class="text-button" data-question-nav="prev" ${index === 0 ? 'disabled' : ''}>← Previous</button><button type="button" class="button alt" data-question-nav="next" ${index === cards.length - 1 ? 'disabled' : ''}>Next →</button></span>`;
+    card.append(nav);
+  });
+  const show = (index) => cards.forEach((card, cardIndex) => { card.hidden = cardIndex !== index; });
+  app.querySelectorAll('[data-question-nav]').forEach((button) => button.addEventListener('click', () => {
+    const current = cards.findIndex((card) => !card.hidden); const target = button.dataset.questionNav === 'prev' ? current - 1 : current + 1;
+    if (target >= 0 && target < cards.length) { show(target); cards[target].scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  }));
+}
 
 function lessonStageContent(stage, u, level, unit) {
   const base = `courses/${level}`; const idBase = `${level}-${unit}`;
@@ -217,7 +232,7 @@ async function renderLesson(level, unitNumber, stageParam = null) {
     const course = await loadCourse(level); const units = course.units || []; const index = Math.max(0, Math.min(units.length - 1, Number(unitNumber) - 1)); const unit = index + 1; const u = units[index]; touchLesson(level, unit, 'practice'); state.builders = new Map();
     const imageName = `${(u.id || '').replace(/^.*u/, 'u') || `u${String(unit).padStart(2, '0')}`}.png`; const prev = unit > 1 ? `<button class="text-button" data-go="lesson/${level}/${unit - 1}">← Previous lesson</button>` : `<button class="text-button" data-go="course/${level}">← Course overview</button>`; const next = unit < units.length ? `<button class="text-button" data-go="lesson/${level}/${unit + 1}">Next lesson →</button>` : `<button class="text-button" data-go="progress">See my progress →</button>`;
     app.innerHTML = page('learn', `<div class="lesson-topbar"><button class="crumb" data-go="course/${level}">← ${esc(course.meta?.title || `MOTIVA ${level}`)}</button><div>${prev}${next}</div></div><section class="lesson-hero"><div><p class="eyebrow">Unit ${String(unit).padStart(2, '0')} · ${esc(u.theme || '')}</p><h1>${esc(u.titleFr)}</h1><p class="lead">${esc(u.titleEn || '')}</p><div class="lesson-goal">Listen, answer, see the correction, and continue.</div></div>${imageSlot(`courses/${level}/images/${imageName}`, u.theme || u.titleFr)}</section>${fullInteractiveUnit(u, level, unit)}`);
-    hydrateImages();
+    hydrateImages(); setupQuestionFlow();
   } catch (error) { app.innerHTML = page('learn', `<section class="error-state"><h1>Lesson unavailable</h1><p>${esc(error.message === 'active_subscription_required' ? 'An active membership is required to open this protected lesson.' : 'Please retry in a moment.')}</p></section>`); }
 }
 
