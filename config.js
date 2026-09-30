@@ -1,0 +1,1 @@
+window.MOTIVA_CONFIG={"supabaseUrl":"https://wrjckkbvfnquevsouxax.supabase.co","supabaseAnonKey":"sb_publishable_aJoMeUyHaiKK1qZiylmo6w_Dkpvg7tg","apiBase":"https://wrjckkbvfnquevsouxax.supabase.co/functions/v1/motiva-api","siteName":"MOTIVA"};
