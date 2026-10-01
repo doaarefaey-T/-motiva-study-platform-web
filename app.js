@@ -9,9 +9,29 @@ const COURSE_PREVIEWS = {
   C1: { label: 'Nuance', outcome: 'Use French flexibly, precisely and fluently in demanding contexts.', focus: 'Register, inference, professional writing and complex discourse.', accent: 'rose' },
   C2: { label: 'Maîtrise', outcome: 'Mediate, synthesize and express subtle meaning with control.', focus: 'Rhetoric, precision, source comparison and high-level production.', accent: 'gold' },
 };
+const PLACEMENT_QUESTIONS = [
+  { level: 'A1', prompt: 'Comment vous appelez-vous ?', choices: ['Je m’appelle Lina.', 'J’ai vingt ans.', 'Je suis à Paris.', 'Il est midi.'], answer: 0, skill: 'Basic interaction' },
+  { level: 'A1', prompt: 'Complétez : Je ___ français.', choices: ['parle', 'parles', 'parler', 'parlons'], answer: 0, skill: 'Present tense' },
+  { level: 'A1', prompt: 'Quelle heure est-il ? 08:30', choices: ['Il est huit heures et demie.', 'Il est midi et demi.', 'Il est neuf heures moins le quart.', 'Il est huit heures moins vingt.'], answer: 0, skill: 'Everyday comprehension' },
+  { level: 'A2', prompt: 'Hier, nous ___ au marché.', choices: ['allons', 'sommes allés', 'irons', 'allions'], answer: 1, skill: 'Past events' },
+  { level: 'A2', prompt: 'Je voudrais réserver une chambre ___ deux nuits.', choices: ['depuis', 'pendant', 'chez', 'vers'], answer: 1, skill: 'Practical language' },
+  { level: 'A2', prompt: 'Si tu as le temps, ___-moi ce soir.', choices: ['appelle', 'appelles', 'appeler', 'appelé'], answer: 0, skill: 'Useful requests' },
+  { level: 'B1', prompt: 'Même s’il ___ fatigué, il continuera.', choices: ['est', 'soit', 'sera', 'était'], answer: 0, skill: 'Complex connectors' },
+  { level: 'B1', prompt: 'Elle m’a expliqué qu’elle ___ plus tard.', choices: ['viendra', 'venait', 'est venue', 'vient'], answer: 1, skill: 'Reported speech' },
+  { level: 'B1', prompt: 'Le film ___ tu m’as parlé est disponible.', choices: ['que', 'dont', 'où', 'lequel'], answer: 1, skill: 'Relative clauses' },
+  { level: 'B2', prompt: 'Il faut que vous ___ attention aux détails.', choices: ['faites', 'fassiez', 'ferez', 'faire'], answer: 1, skill: 'Subjunctive' },
+  { level: 'B2', prompt: 'Cette décision risque d’avoir des conséquences ___ .', choices: ['anodines', 'négligeables', 'considérables', 'ordinaires'], answer: 2, skill: 'Nuanced vocabulary' },
+  { level: 'B2', prompt: 'Le rapport met l’accent ___ la nécessité d’agir.', choices: ['à', 'en', 'sur', 'par'], answer: 2, skill: 'Formal collocations' },
+  { level: 'C1', prompt: 'Quoiqu’il ___ raison sur le fond, sa méthode est discutable.', choices: ['a', 'ait', 'aura', 'avait'], answer: 1, skill: 'Advanced mood' },
+  { level: 'C1', prompt: 'Cette mesure est loin d’être ___ .', choices: ['superficielle', 'anodine', 'pertinente', 'univoque'], answer: 1, skill: 'Inference and nuance' },
+  { level: 'C1', prompt: 'Le texte laisse ___ une évolution prochaine de la politique.', choices: ['entendre', 'prendre', 'sortir', 'rendre'], answer: 0, skill: 'Abstract expression' },
+  { level: 'C2', prompt: 'L’auteur récuse une lecture ___ du phénomène.', choices: ['monolithique', 'quotidienne', 'ponctuelle', 'familière'], answer: 0, skill: 'High-level vocabulary' },
+  { level: 'C2', prompt: 'Sans ___ la portée de ces résultats, il convient de les nuancer.', choices: ['préjuger', 'minorer', 'démentir', 'convenir'], answer: 1, skill: 'Precision and register' },
+  { level: 'C2', prompt: 'Le raisonnement est subtil, encore que parfois difficile à ___ .', choices: ['saisir', 'saisissant', 'saisi', 'saisie'], answer: 0, skill: 'Advanced comprehension' },
+];
 const state = {
   session: null, me: null, plan: null, courseCache: new Map(), assetUrls: new Map(), activeAudio: null,
-  tcf: null, grammar: null, admin: null, users: [], notice: '', builders: new Map(), progress: null,
+  tcf: null, grammar: null, admin: null, users: [], notice: '', builders: new Map(), progress: null, placement: { answers: [], index: 0, result: null },
 };
 const SESSION_KEY = 'motiva-independent-session-v1';
 const esc = (value = '') => String(value ?? '').replace(/[&<>'"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
@@ -102,9 +122,23 @@ function renderToday() {
   app.innerHTML = page('today', `${hero}${practice}`);
 }
 
+function placementResult() {
+  const counts = Object.fromEntries(LEVELS.map((level) => [level, 0])); let total = 0;
+  PLACEMENT_QUESTIONS.forEach((question, index) => { if (state.placement.answers[index] === question.answer) { counts[question.level] += 1; total += 1; } });
+  let recommended = 'A1'; for (const level of LEVELS) if (counts[level] >= 2) recommended = level; else break;
+  return { total, counts, recommended, completedAt: new Date().toISOString() };
+}
+function renderPlacement() {
+  const p = state.placement;
+  if (p.result) { const result = p.result; const percent = Math.round(result.total / PLACEMENT_QUESTIONS.length * 100); const breakdown = LEVELS.map((level) => `<div class="placement-band"><strong>${level}</strong><span>${result.counts[level]}/3 correct</span></div>`).join(''); app.innerHTML = page('learn', `<section class="placement-result"><p class="eyebrow">Placement result</p><h1>Your suggested starting level is <strong>${result.recommended}</strong>.</h1><p class="lead">You answered ${result.total} of ${PLACEMENT_QUESTIONS.length} questions correctly (${percent}%). Start at ${result.recommended}, then adjust after your first guided lesson if needed.</p><div class="placement-breakdown">${breakdown}</div><div class="buttons"><button class="button" data-go="course/${result.recommended}">Open ${result.recommended} pathway →</button><button class="button alt" data-placement-restart>Take the test again</button></div><p class="muted">This is an adaptive recommendation for study planning, not an official certification.</p></section>`); return; }
+  const index = Math.max(0, Math.min(PLACEMENT_QUESTIONS.length - 1, Number(p.index) || 0)); const question = PLACEMENT_QUESTIONS[index]; const selected = p.answers[index];
+  const choices = question.choices.map((choice, choiceIndex) => `<button type="button" class="placement-choice ${selected === choiceIndex ? 'selected' : ''}" data-placement-choice="${choiceIndex}"><span>${String.fromCharCode(65 + choiceIndex)}</span>${esc(choice)}</button>`).join('');
+  app.innerHTML = page('learn', `<section class="placement-shell"><div class="placement-head"><div><button class="crumb" data-go="learn">← Learning pathway</button><p class="eyebrow">MOTIVA placement test</p><h1>Find your best starting level.</h1><p class="lead">Answer ${PLACEMENT_QUESTIONS.length} short questions from A1 to C2. Do your best without looking anything up.</p></div><div class="placement-progress"><strong>${index + 1}/${PLACEMENT_QUESTIONS.length}</strong><span>${question.level} checkpoint</span></div></div><div class="placement-progress-bar"><span style="width:${Math.round((index + 1) / PLACEMENT_QUESTIONS.length * 100)}%"></span></div><section class="placement-card"><p class="eyebrow">${esc(question.skill)}</p><h2>${esc(question.prompt)}</h2><div class="placement-choices">${choices}</div><div class="placement-actions"><button class="text-button" data-placement-nav="prev" ${index === 0 ? 'disabled' : ''}>← Previous</button><span class="muted">Your answer is kept when you go back.</span><button class="button" data-placement-nav="next" ${selected === undefined ? 'disabled' : ''}>${index === PLACEMENT_QUESTIONS.length - 1 ? 'Finish test' : 'Next question →'}</button></div></section></section>`);
+}
+
 function renderLearn() {
   const headerCopy = state.me?.user ? 'Choose a level, then move through clear units and focused lessons.' : 'Explore the full A1–C2 learning pathway. Lesson previews are open; interactive material stays protected until membership is active.';
-  app.innerHTML = page('learn', `<section class="page-intro"><p class="eyebrow">Learn French step by step</p><h1>Choose your pathway.</h1><p class="lead">${esc(headerCopy)}</p></section><section class="course-grid full">${LEVELS.map((level) => previewCourseCard(level)).join('')}</section><section class="section learning-explainer"><div><p class="eyebrow">Inside every lesson</p><h2>One small learning loop.<br>Repeated with purpose.</h2></div><ol class="learning-loop"><li><strong>Discover</strong><span>See the situation and the goal.</span></li><li><strong>Listen</strong><span>Hear French in useful context.</span></li><li><strong>Use</strong><span>Choose, fill, match and build.</span></li><li><strong>Reflect</strong><span>Get correction and continue.</span></li></ol></section>`);
+  app.innerHTML = page('learn', `<section class="page-intro"><p class="eyebrow">Learn French step by step</p><h1>Choose your pathway.</h1><p class="lead">${esc(headerCopy)}</p><div class="buttons"><button class="button" data-go="placement">Take the placement test →</button></div></section><section class="course-grid full">${LEVELS.map((level) => previewCourseCard(level)).join('')}</section><section class="section learning-explainer"><div><p class="eyebrow">Inside every lesson</p><h2>One small learning loop.<br>Repeated with purpose.</h2></div><ol class="learning-loop"><li><strong>Discover</strong><span>See the situation and the goal.</span></li><li><strong>Listen</strong><span>Hear French in useful context.</span></li><li><strong>Use</strong><span>Choose, fill, match and build.</span></li><li><strong>Reflect</strong><span>Get correction and continue.</span></li></ol></section>`);
 }
 
 async function loadCourse(level) {
@@ -324,6 +358,9 @@ async function submitAttempt(box, response, messages) {
 
 async function handleClick(event) {
   const target = event.target.closest('[data-go]'); if (target) { go(target.dataset.go); return; }
+  const placementChoice = event.target.closest('[data-placement-choice]'); if (placementChoice) { state.placement.answers[state.placement.index] = Number(placementChoice.dataset.placementChoice); renderPlacement(); return; }
+  const placementRestart = event.target.closest('[data-placement-restart]'); if (placementRestart) { state.placement = { answers: [], index: 0, result: null }; localStorage.removeItem('motiva-placement-result-v1'); renderPlacement(); return; }
+  const placementNav = event.target.closest('[data-placement-nav]'); if (placementNav && !placementNav.disabled) { if (placementNav.dataset.placementNav === 'prev') state.placement.index = Math.max(0, state.placement.index - 1); else if (state.placement.index === PLACEMENT_QUESTIONS.length - 1) { state.placement.result = placementResult(); localStorage.setItem('motiva-placement-result-v1', JSON.stringify(state.placement.result)); } else state.placement.index += 1; renderPlacement(); return; }
   const closeReader = event.target.closest('[data-close-reader]'); if (closeReader) { closeReader.closest('dialog')?.close(); closeReader.closest('dialog')?.remove(); return; }
   const audio = event.target.closest('[data-audio]'); if (audio) { try { await playProtected(audio.dataset.audio, audio); } catch { setNotice('Audio could not be loaded. Check your active membership.', 'error'); render(); } return; }
   const reference = event.target.closest('[data-reference]'); if (reference) { await openReference(reference.dataset.reference, reference.dataset.referenceTitle); return; }
@@ -361,6 +398,7 @@ async function render() {
   if (main === 'login') return renderLogin();
   if (main === 'today' || main === 'home') return renderToday();
   if (main === 'learn') return parts[1] && LEVELS.includes(parts[1]) ? renderCourse(parts[1]) : renderLearn();
+  if (main === 'placement') return renderPlacement();
   if (main === 'course' && LEVELS.includes(parts[1])) return renderCourse(parts[1]);
   if (main === 'lesson' && LEVELS.includes(parts[1]) && parts[2]) return renderLesson(parts[1], parts[2], parts[3]);
   if (main === 'book' && LEVELS.includes(parts[1]) && parts[2]) return renderLesson(parts[1], parts[2], parts[3]);
@@ -370,5 +408,5 @@ async function render() {
   if (main === 'admin') return renderAdmin(parts[1] ? `admin/${parts[1]}` : 'admin');
   return renderToday();
 }
-async function boot() { try { saveSession(savedSession()); if (state.session) { try { await getMe(); } catch { saveSession(null); state.me = null; loadProgress(); } } else loadProgress(); await getPlan(); await render(); } catch (error) { app.innerHTML = `<section class="shell"><p class="error">Configuration error: ${esc(error.message)}</p><p>Set the public Supabase configuration before deploying.</p></section>`; } }
+async function boot() { try { const savedPlacement = JSON.parse(localStorage.getItem('motiva-placement-result-v1') || 'null'); if (savedPlacement) state.placement.result = savedPlacement; saveSession(savedSession()); if (state.session) { try { await getMe(); } catch { saveSession(null); state.me = null; loadProgress(); } } else loadProgress(); await getPlan(); await render(); } catch (error) { app.innerHTML = `<section class="shell"><p class="error">Configuration error: ${esc(error.message)}</p><p>Set the public Supabase configuration before deploying.</p></section>`; } }
 app.addEventListener('click', (event) => { handleClick(event); }); app.addEventListener('submit', (event) => { handleSubmit(event); }); window.addEventListener('hashchange', () => { render(); }); boot();
